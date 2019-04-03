@@ -1,5 +1,14 @@
 FROM ubuntu:16.04
 
+LABEL com.redhat.component="jenkins-slave-miniapp-rhel7-docker" \
+      name="openshift3/jenkins-slave-miniapp-rhel7" \
+      version="3.11" \
+      architecture="x86_64" \
+      release="1" \
+      io.k8s.display-name="Jenkins Slave miniapp" \
+      io.k8s.description="The jenkins slave arachni image has the miniapp tools on top of the jenkins slave base image." \
+      io.openshift.tags="openshift,jenkins,slave,miniapp"
+
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -63,24 +72,48 @@ RUN apt-get update -qqy \
     rlwrap \
     rsync \
   && rm -rf /var/lib/apt/lists/* \
-  && sed -i 's/securerandom\.source=file:\/dev\/random/securerandom\.source=file:\/dev\/urandom/' ./usr/lib/jvm/java-8-openjdk-amd64/jre/lib/security/java.security
+  && sed -i 's/securerandom\.source=file:\/dev\/random/securerandom\.source=file:\/dev\/urandom/' ./usr/lib/jvm/java-8-openjdk-amd64/jre/lib/security/java.security && \
+  mkdir -p /home/jenkins && \
+  chown -R 1001:0 /home/jenkins && \
+  chmod -R g+w /home/jenkins && \
+  chmod 664 /etc/passwd && \
+  chmod -R 775 /etc/alternatives && \
+  chmod -R 775 /var/lib/alternatives && \
+  chmod -R 775 /usr/lib/jvm && \
+  chmod 775 /usr/bin && \
+  chmod 775 /usr/lib/jvm-exports && \
+  chmod 775 /usr/share/man/man1 && \
+  mkdir -p /var/lib/origin && \
+  chmod 775 /var/lib/origin && \
+  unlink /usr/bin/java && \
+  unlink /usr/bin/jjs && \
+  unlink /usr/bin/keytool && \
+  unlink /usr/bin/orbd && \
+  unlink /usr/bin/pack200 && \
+  unlink /usr/bin/policytool && \
+  unlink /usr/bin/rmid && \
+  unlink /usr/bin/rmiregistry && \
+  unlink /usr/bin/servertool && \
+  unlink /usr/bin/tnameserv && \
+  unlink /usr/bin/unpack200 && \
+  unlink /usr/lib/jvm-exports/jre && \
+  unlink /usr/share/man/man1/java.1.gz && \
+  unlink /usr/share/man/man1/jjs.1.gz && \
+  unlink /usr/share/man/man1/keytool.1.gz && \
+  unlink /usr/share/man/man1/orbd.1.gz && \
+  unlink /usr/share/man/man1/pack200.1.gz && \
+  unlink /usr/share/man/man1/policytool.1.gz && \
+  unlink /usr/share/man/man1/rmid.1.gz && \
+  unlink /usr/share/man/man1/rmiregistry.1.gz && \
+  unlink /usr/share/man/man1/servertool.1.gz && \
+  unlink /usr/share/man/man1/tnameserv.1.gz && \
+  unlink /usr/share/man/man1/unpack200.1.gz
 
 # workaround https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=775775
 RUN [ -f "/etc/ssl/certs/java/cacerts" ] || /var/lib/dpkg/info/ca-certificates-java.postinst configure
 
 # workaround "You are using pip version 8.1.1, however version 9.0.1 is available."
 RUN pip install --upgrade pip setuptools
-
-#==========
-# Maven
-#==========
-ENV MAVEN_VERSION 3.6.0
-
-RUN curl -fsSL http://archive.apache.org/dist/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.tar.gz | tar xzf - -C /usr/share \
-  && mv /usr/share/apache-maven-$MAVEN_VERSION /usr/share/maven \
-  && ln -s /usr/share/maven/bin/mvn /usr/bin/mvn
-
-ENV MAVEN_HOME /usr/share/maven
 
 #========================================
 # Add normal user with passwordless sudo
@@ -89,46 +122,6 @@ RUN useradd jenkins --shell /bin/bash --create-home \
   && usermod -a -G sudo jenkins \
   && echo 'ALL ALL = (ALL) NOPASSWD: ALL' >> /etc/sudoers \
   && echo 'jenkins:secret' | chpasswd
-
-#=====
-# XVFB
-#=====
-RUN apt-get update -qqy \
-  && apt-get -qqy --no-install-recommends install \
-    xvfb \
-  && rm -rf /var/lib/apt/lists/*
-
-#=========
-# Firefox
-#=========
-ARG FIREFOX_VERSION=60.4.0esr
-
-# don't install firefox with apt-get because there are some problems,
-# install the binaries downloaded from mozilla
-# see https://github.com/SeleniumHQ/docker-selenium/blob/3.0.1-fermium/NodeFirefox/Dockerfile#L13
-# workaround "D-Bus library appears to be incorrectly set up; failed to read machine uuid"
-# run "dbus-uuidgen > /var/lib/dbus/machine-id"
-
-RUN apt-get update -qqy \
-  && apt-get -qqy --no-install-recommends install firefox dbus \
-  && rm -rf /var/lib/apt/lists/* /var/cache/apt/* \
-  && wget --no-verbose -O /tmp/firefox.tar.bz2 https://download-installer.cdn.mozilla.net/pub/firefox/releases/$FIREFOX_VERSION/linux-x86_64/en-US/firefox-$FIREFOX_VERSION.tar.bz2 \
-  && apt-get -y purge firefox \
-  && rm -rf /opt/firefox \
-  && tar -C /opt -xjf /tmp/firefox.tar.bz2 \
-  && rm /tmp/firefox.tar.bz2 \
-  && mv /opt/firefox /opt/firefox-$FIREFOX_VERSION \
-  && ln -fs /opt/firefox-$FIREFOX_VERSION/firefox /usr/bin/firefox
-
-RUN dbus-uuidgen > /var/lib/dbus/machine-id
-
-#======================
-# Firefox GECKO DRIVER
-#======================
-
-ARG GECKO_DRIVER_VERSION=v0.23.0
-RUN wget -O - "https://github.com/mozilla/geckodriver/releases/download/$GECKO_DRIVER_VERSION/geckodriver-$GECKO_DRIVER_VERSION-linux64.tar.gz" \
-      | tar -xz -C /usr/bin
 
 #====================================
 # NODE JS
@@ -146,18 +139,10 @@ RUN npm install --global grunt-cli@1.3.1 bower@1.8.4 gulp@4.0.0
 #==========
 # Jenkins slave
 #==========
-ARG JENKINS_REMOTING_VERSION=3.27
-
-# See https://github.com/jenkinsci/docker-slave/blob/master/Dockerfile#L31
-RUN curl --create-dirs -sSLo /usr/share/jenkins/slave.jar https://repo.jenkins-ci.org/public/org/jenkins-ci/main/remoting/$JENKINS_REMOTING_VERSION/remoting-$JENKINS_REMOTING_VERSION.jar \
-  && chmod 755 /usr/share/jenkins \
-  && chmod 644 /usr/share/jenkins/slave.jar
-
-COPY jenkins-slave /usr/local/bin/jenkins-slave
-
-RUN chmod a+rwx /home/jenkins
+# Copy the entrypoint
+ADD contrib/bin/* /usr/local/bin/
 WORKDIR /home/jenkins
 USER jenkins
 
-
-ENTRYPOINT ["/usr/local/bin/jenkins-slave"]
+# Run the Jenkins JNLP client
+ENTRYPOINT ["/usr/local/bin/run-jnlp-client"]
