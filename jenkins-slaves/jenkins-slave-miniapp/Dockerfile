@@ -60,7 +60,13 @@ ENV HOME=/home/jenkins
 USER root
 RUN apt-get update -qqy \
   && apt-get -qqy --no-install-recommends install \
-    iproute \
+    wget \
+    dnsutils \
+    openssl \
+    gpg-agent \
+    dbus \
+    libgconf-2-4 \
+    ca-certificates \
     openssh-client ssh-askpass\
     ca-certificates \
     openjdk-8-jdk \
