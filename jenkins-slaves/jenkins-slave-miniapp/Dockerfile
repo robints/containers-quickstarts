@@ -71,8 +71,6 @@ RUN [ -f "/etc/ssl/certs/java/cacerts" ] || /var/lib/dpkg/info/ca-certificates-j
 # workaround "You are using pip version 8.1.1, however version 9.0.1 is available."
 RUN pip install --upgrade pip setuptools
 
-RUN pip install yq
-
 #==========
 # Maven
 #==========
