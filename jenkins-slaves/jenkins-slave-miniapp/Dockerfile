@@ -56,7 +56,7 @@ RUN apt-get update -qqy \
 #========================
 ENV LANG C.UTF-8
 ENV DISPLAY :1.0
-ENV HOME=/root
+ENV MINI_HOME=/root
 RUN echo "Asia/Shanghai" > /etc/timezone
 RUN dpkg-reconfigure -f noninteractive tzdata
 
@@ -85,9 +85,6 @@ RUN apt-get update -qqy \
     rsync \
     gnupg2 \
   && rm -rf /var/lib/apt/lists/*
-
-RUN echo "Asia/Shanghai" > /etc/timezone
-RUN dpkg-reconfigure -f noninteractive tzdata
 
 # workaround https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=775775
 RUN [ -f "/etc/ssl/certs/java/cacerts" ] || /var/lib/dpkg/info/ca-certificates-java.postinst configure

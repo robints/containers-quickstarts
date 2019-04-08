@@ -2,7 +2,7 @@
 
 trap clean EXIT
 
-dev_tools_config_dir="$HOME/.config/wechat_web_devtools"
+dev_tools_config_dir="$MINI_HOME/.config/wechat_web_devtools"
 
 clean() {
   if [ -d $dev_tools_config_dir ]; then
