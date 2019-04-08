@@ -128,4 +128,5 @@ RUN chmod a+rwx /home/jenkins
 RUN chmod 664 /etc/passwd
 
 # Run the Jenkins JNLP client
-ENTRYPOINT ["/usr/local/bin/run-jnlp-client", "/root/bin/docker-entrypoint.sh"]
+CMD ["/root/bin/docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/run-jnlp-client"]
