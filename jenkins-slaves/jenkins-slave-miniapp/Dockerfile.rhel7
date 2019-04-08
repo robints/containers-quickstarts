@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM dorowu/ubuntu-desktop-lxde-vnc:bionic
 
 LABEL com.redhat.component="jenkins-slave-miniapp-rhel7-docker" \
       name="openshift3/jenkins-slave-miniapp-rhel7" \
@@ -31,7 +31,6 @@ LABEL com.redhat.component="jenkins-slave-miniapp-rhel7-docker" \
 # https://github.com/SeleniumHQ/docker-selenium/blob/master/Base/Dockerfile
 #################################################
 
-
 #================================================
 # Customize sources for apt-get
 #================================================
@@ -55,12 +54,15 @@ RUN apt-get update -qqy \
 # groff is for aws-cli
 # tree is convenient for troubleshooting builds
 #========================
-ENV HOME=/home/jenkins
+ENV LANG C.UTF-8
+ENV DISPLAY :1.0
+ENV HOME=/root
+RUN echo "Asia/Shanghai" > /etc/timezone
+RUN dpkg-reconfigure -f noninteractive tzdata
 
 USER root
 RUN apt-get update -qqy \
-  && apt-get -qqy --no-install-recommends install \
-    wget \
+  && apt-get -qqy --no-install-recommends install --allow-unauthenticated \
     dnsutils \
     openssl \
     gpg-agent \
@@ -70,6 +72,7 @@ RUN apt-get update -qqy \
     openssh-client ssh-askpass\
     ca-certificates \
     openjdk-8-jdk \
+    p7zip-full \
     tar zip unzip \
     wget curl \
     git \
@@ -80,10 +83,35 @@ RUN apt-get update -qqy \
     python python-pip groff \
     rlwrap \
     rsync \
-  && rm -rf /var/lib/apt/lists/* 
+    gnupg2 \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN echo "Asia/Shanghai" > /etc/timezone
+RUN dpkg-reconfigure -f noninteractive tzdata
 
 # workaround https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=775775
 RUN [ -f "/etc/ssl/certs/java/cacerts" ] || /var/lib/dpkg/info/ca-certificates-java.postinst configure
+#========================================
+# add miniapp developer tools
+#========================================
+ENV PATH="/root/bin:${PATH}"
+
+COPY ./wxdt/ /root/
+RUN chmod +x /root/bin/docker-entrypoint.sh
+
+# 将开发者工具加入supervisord
+RUN echo "\n\
+[program:wxdt]\n\
+priority=25\n\
+directory=/root/bin/\n\
+command=bash wxdt start\n\
+stderr_logfile=/var/log/wxdt.err.log\n\
+stdout_logfile=/var/log/wxdt.out.log\n\
+" >> /etc/supervisor/conf.d/supervisord.conf
+
+# 安装开发者工具，然后删除下载的文件
+RUN update_nwjs.sh \
+    && rm -rf /tmp/wxdt_xsp
 
 #========================================
 # Add normal user with passwordless sudo
@@ -101,7 +129,6 @@ ADD contrib/bin/* /usr/local/bin/
 RUN mkdir -p /home/jenkins
 RUN chmod a+rwx /home/jenkins
 RUN chmod 664 /etc/passwd
-WORKDIR /home/jenkins
 
 # Run the Jenkins JNLP client
-ENTRYPOINT ["/usr/local/bin/run-jnlp-client"]
+ENTRYPOINT ["/usr/local/bin/run-jnlp-client", "/root/bin/docker-entrypoint.sh"]
